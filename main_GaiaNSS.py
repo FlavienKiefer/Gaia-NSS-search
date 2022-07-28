@@ -43,7 +43,6 @@ def main():
     # file with basic systems data
     filename=config['input']
     data = ascii.read(filename,delimiter='\t',guess=False,data_start=2)
-    data=data[:10]
     data.pprint()
     print('')
 
