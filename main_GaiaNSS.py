@@ -88,7 +88,7 @@ def main():
             ibrightest=np.argsort(queryTable_main['phot_g_mean_mag'].data)[0]
             queryTable_main=queryTable_main[ibrightest:ibrightest+1]
         source_id=queryTable_main['source_id'].data[0]
-        designation=queryTable_main['DESIGNATION'].data
+        designation=Table([[queryTable_main['DESIGNATION'].data[0]]],names=('DESIGNATION',))
         
         # now search the NSS table
         try:
