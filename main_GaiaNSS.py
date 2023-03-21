@@ -36,6 +36,10 @@ def main():
     # important parameters to fix
     Gaia.MAIN_GAIA_TABLE = "gaiadr3.gaia_source" # Select Data Release 3
     Gaia_stellar_param = Vizier(catalog="I/355/paramp")
+    Gaia_vizier = Vizier(catalog="I/355/gaiadr3")
+    TIC_vizier = Vizier(catalog="I/259/tyc2",columns=['HIP'])
+    TICsuppl1_vizier = Vizier(catalog="I/259/suppl_1",columns=['HIP'])
+    TICsuppl2_vizier = Vizier(catalog="I/259/suppl_2",columns=['HIP'])
     warnings.simplefilter(action="ignore", category=FutureWarning)
     warnings.simplefilter('ignore', category=AstropyWarning)
     warnings.simplefilter('ignore', category=UserWarning)
@@ -56,7 +60,7 @@ def main():
             
         # search simbad
         customSimbad = Simbad()
-        customSimbad.add_votable_fields('ra(:;A;ICRS;J2016;2000)', 'dec(:;D;ICRS;J2016;2000)', 'id(HIP)')
+        customSimbad.add_votable_fields('ra(:;A;ICRS;J2016;2000)', 'dec(:;D;ICRS;J2016;2000)','id(HIP)','id(TYC)','id(Gaia DR3)')
         customSimbad.remove_votable_fields('coordinates')
         try:
             result_table = customSimbad.query_object(names_star[i])
@@ -68,13 +72,51 @@ def main():
         except:
             print('error: SIMBAD retrieval failed')
             continue
+            
+        # if SIMBAD failed and Gaia DR3 name, search directly the Gaia DR3 to get the coordinates
+        if len(result_table)==0 and "aia" in names_star[i]:
+            print('>> searching Gaia DR3 to get coordinates of {}...'.format(names_star[i]))
+            print()
+            gaiatable=Gaia_vizier.query_constraints(Source=names_star[i][9:])[0]; gaiatable.pprint();
+            result_table=Table([[gaiatable['RA_ICRS'].data[0]],[gaiatable['DE_ICRS'].data[0]],[gaiatable['HIP'].data[0]],[gaiatable['TYC2'].data[0]],[gaiatable['DESIGNATION'].data[0]],['']],names=('RA___A_ICRS_J2016_2000','DEC___D_ICRS_J2016_2000','ID_HIP','ID_TYC','ID_Gaia_DR3','SP_TYPE'))
+            coord = SkyCoord(ra=gaiatable['RA_ICRS'].data[0], dec=gaiatable['DE_ICRS'].data[0], unit=(u.degree,u.degree), frame='icrs',equinox='J2000')
+        elif len(result_table)>0:
+            coord = SkyCoord(ra=result_table['RA___A_ICRS_J2016_2000'].data[0], dec=result_table['DEC___D_ICRS_J2016_2000'].data[0], unit=(u.hourangle, u.deg), frame='icrs',equinox='J2000')
+        else:
+            continue
+        HIPname=result_table['ID_HIP'][0]
+        flagHIP=True
+        if hasattr(HIPname,'mask'):
+            if HIPname.mask:
+                flagHIP=False
+        elif len(HIPname)==0:
+            flagHIP=False
+        if not flagHIP:
+            flagTIC=True
+            TICname=result_table['ID_TYC'][0]
+            if hasattr(TICname,'mask'):
+                if TICname.mask:
+                    flagTIC=False
+            elif len(TICname)==0:
+                flagTIC=False
+            if flagTIC:
+                TICliteral=TICname.split(' ')[-1]
+                TICcat=TIC_vizier.query_constraints(TYC1=TICliteral.split('-')[0],TYC2=TICliteral.split('-')[1],TYC3=TICliteral.split('-')[2])
+                if len(TICcat)==0:
+                    TICcat=TICsuppl1_vizier.query_constraints(TYC1=TICliteral.split('-')[0],TYC2=TICliteral.split('-')[1],TYC3=TICliteral.split('-')[2])
+                if len(TICcat)==0:
+                    TICcat=TICsuppl2_vizier.query_constraints(TYC1=TICliteral.split('-')[0],TYC2=TICliteral.split('-')[1],TYC3=TICliteral.split('-')[2])
+                if len(TICcat)>0:
+                    TICcat=TICcat[0]
+                    if len(TICcat)>0:
+                        result_table['ID_HIP'][0]='HIP {}'.format(TICcat['HIP'].data[0])
         
         # now search Gaia catalog
         coord = SkyCoord(ra=result_table['RA___A_ICRS_J2016_2000'].data[0], dec=result_table['DEC___D_ICRS_J2016_2000'].data[0], unit=(u.hourangle, u.deg), frame='icrs',equinox='J2000')
         radius = u.Quantity(5, u.arcsec)
         try:
             queryTable_main = Gaia.query_object(coordinate=coord, radius=radius)
-            if queryTable_main is None:
+            if len(queryTable_main)==0:
                 print('Object not found in Gaia EDR3')
                 continue
             else:
@@ -84,9 +126,17 @@ def main():
             continue
         Nfound=len(queryTable_main['source_id'].data)
         if Nfound>1:
-            print('{} entries : selecting brightest'.format(Nfound),end='; ',flush=True)
-            ibrightest=np.argsort(queryTable_main['phot_g_mean_mag'].data)[0]
-            queryTable_main=queryTable_main[ibrightest:ibrightest+1]
+            if len(result_table['ID_Gaia_DR3'])>0:
+                print('{} entries : selecting correct Gaia DR3 ID'.format(Nfound),end='; ',flush=True)
+                source_ids=queryTable_main['source_id'].data
+                for ii,ids in enumerate(source_ids):
+                    if '{}'.format(ids) in result_table['ID_Gaia_DR3'].data[0]:
+                        queryTable_main=queryTable_main[ii:ii+1]
+                        break
+            else:
+                print('{} entries : selecting brightest'.format(Nfound),end='; ',flush=True)
+                ibrightest=np.argsort(queryTable_main['phot_g_mean_mag'].data)[0]
+                queryTable_main=queryTable_main[ibrightest:ibrightest+1]
         source_id=queryTable_main['source_id'].data[0]
         designation=Table([[queryTable_main['DESIGNATION'].data[0]]],names=('DESIGNATION',))
         
@@ -172,7 +222,8 @@ def main():
         else:
             newdata=vstack([newdata,interdata])
             
-    newdata.write(filename.split('.')[0]+'_gaianss.txt', overwrite=True, format='ascii.tab')
+    newdata.write(filename.split('.')[0]+'_gaianss.txt', overwrite=True,format='ascii.fixed_width_two_line')
+    newdata.write(filename.split('.')[0]+'_gaianss.csv', overwrite=True,format='ascii.csv',delimiter=',')
     print('')
     newdata.pprint()
     print('')
