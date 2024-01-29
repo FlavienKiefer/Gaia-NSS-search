@@ -78,7 +78,7 @@ def main():
             
         # search simbad
         customSimbad = Simbad()
-        customSimbad.add_votable_fields('ra(:;A;ICRS;J2016;2000)', 'dec(:;D;ICRS;J2016;2000)','id(HD)','id(BD)','id(HIP)','id(TYC)','id(Gaia DR3)','sptype')
+        customSimbad.add_votable_fields('ra(:;A;ICRS;J2016;2000)', 'dec(:;D;ICRS;J2016;2000)', 'ra(:;A;ICRS;J2000;2000)', 'dec(:;D;ICRS;J2000;2000)','id(HD)','id(BD)','id(HIP)','id(TYC)','id(Gaia DR3)','sptype')
         customSimbad.remove_votable_fields('coordinates')
         try:
             while True:
@@ -93,7 +93,10 @@ def main():
                 simbad_table=Table()
             else:
                 print('Object found in SIMBAD'.format(names_star[i]),end='; ',flush=True)
-                simbad_table=Table([[simbad_table['MAIN_ID'].data[0]],[simbad_table['RA___A_ICRS_J2016_2000'].data[0]],[simbad_table['DEC___D_ICRS_J2016_2000'].data[0]],[simbad_table['ID_HD'].data[0]],[simbad_table['ID_BD'].data[0]],[simbad_table['ID_HIP'].data[0]],[simbad_table['ID_TYC'].data[0]],[simbad_table['ID_Gaia_DR3'].data[0]],[simbad_table['SP_TYPE'].data[0]]],names=('MAIN_ID','RA___A_ICRS_J2016_2000','DEC___D_ICRS_J2016_2000','ID_HD','ID_BD','ID_HIP','ID_TYC','ID_Gaia_DR3','SP_TYPE'))
+                if len(simbad_table['RA___A_ICRS_J2016_2000'].data[0])==0 or len(simbad_table['DEC___D_ICRS_J2016_2000'].data[0])<2:
+                    simbad_table=Table([[simbad_table['MAIN_ID'].data[0]],[simbad_table['RA___A_ICRS_J2000_2000'].data[0]],[simbad_table['DEC___D_ICRS_J2000_2000'].data[0]],[simbad_table['ID_HD'].data[0]],[simbad_table['ID_BD'].data[0]],[simbad_table['ID_HIP'].data[0]],[simbad_table['ID_TYC'].data[0]],[simbad_table['ID_Gaia_DR3'].data[0]],[simbad_table['SP_TYPE'].data[0]]],names=('MAIN_ID','RA___A_ICRS_J2016_2000','DEC___D_ICRS_J2016_2000','ID_HD','ID_BD','ID_HIP','ID_TYC','ID_Gaia_DR3','SP_TYPE'))
+                else:
+                    simbad_table=Table([[simbad_table['MAIN_ID'].data[0]],[simbad_table['RA___A_ICRS_J2016_2000'].data[0]],[simbad_table['DEC___D_ICRS_J2016_2000'].data[0]],[simbad_table['ID_HD'].data[0]],[simbad_table['ID_BD'].data[0]],[simbad_table['ID_HIP'].data[0]],[simbad_table['ID_TYC'].data[0]],[simbad_table['ID_Gaia_DR3'].data[0]],[simbad_table['SP_TYPE'].data[0]]],names=('MAIN_ID','RA___A_ICRS_J2016_2000','DEC___D_ICRS_J2016_2000','ID_HD','ID_BD','ID_HIP','ID_TYC','ID_Gaia_DR3','SP_TYPE'))
                 if check_len_mask(simbad_table['ID_HIP']):
                     simbad_table['ID_HIP'].mask=False
                     simbad_table['ID_HIP']=['']
